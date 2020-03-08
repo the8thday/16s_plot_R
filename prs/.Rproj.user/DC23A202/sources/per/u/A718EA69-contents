@@ -1,0 +1,10 @@
+#!/urs/bin/env Rscript
+args <- commandArgs(trailingOnly = TRUE)
+stopifnot(length(args) >= 4)
+infile <- args[1]
+
+if (!require(tidyverse)){
+  install.packages('tidyverse')
+} else {
+  library(tidyverse)
+}

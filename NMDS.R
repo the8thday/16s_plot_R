@@ -55,8 +55,8 @@ otu <- data.frame(t(otu))
 #otu <- otu[!row.names(otu) %in% c('taxonomy'), ]
 mapfile <- read_delim(map_file, delim = '\t') %>% select(Type, Description)
 #mapfile <- subset(read.delim('~/prs/ruijin_pang/map.txt', sep = '\t'), select = c(Type, Description))
-###anosim分析
-otu2 <- otu
+# otu2 <- otu
+otu2 <- log(otu + 1)
 otu2$Description <- row.names(otu2)
 otu3 <- merge(otu2, mapfile, by.x = 'Description', by.y = 'Description')
 row.names(otu3) <- otu3$Description
@@ -67,7 +67,7 @@ otu4 <- subset(otu3, select = -c(Description, Type))
 # anosim分析 ----------------------------------------------------------------
 
 anosim_result_otu <- anosim(otu4, otu3$Type, permutations = 999, distance = 'bray')
-(anosim_all_plot <- plot(anosim_result_otu, col=c('red4', 'blue3', 'yellow')))
+anosim_all_plot <- plot(anosim_result_otu, col=c('red4', 'blue3', 'yellow'))
 ggsave(anosim_all_plot, filename = file.path(outpath, 'anosim_all_boxplot.png'), 
        height = 8, width = 8, dpi = 800)
 Rvalue <- anosim_result_otu$statistic
@@ -97,7 +97,16 @@ anosim_result_two <- data.frame(anosim_result_two, stringsAsFactors = FALSE)
 names(anosim_result_two) <- c('group', 'distance', 'R', 'P_value', 'Sig')
 write.table(format(anosim_result_two, scientific = FALSE), file = file.path(outpath, 'ANOSIM.result_two.txt'), row.names = FALSE, 
             sep = '\t', quote = FALSE, na = '')
-#PERMANOVA分析
+
+#可选添加 p 值校正过程，例如 Benjamini 校正
+anosim_result_two$P_value <- as.numeric(anosim_result_two$P_value)
+anosim_result_two$P_adj_BH <- p.adjust(anosim_result_two$P_value, method = 'BH')
+
+# write.table(anosim_result_two, file = file.path(outpath, 'ANOSIM.result_two_BH.txt'), 
+#             row.names = FALSE, sep = '\t', quote = FALSE, na = '')
+
+# #PERMANOVA分析 ------------------------------------------------------------
+
 adonis_result_otu <- adonis(otu4~Type, otu3, permutations = 999, distance = 'bray')
 otuput <- data.frame(adonis_result_otu$aov.tab, check.names = FALSE, stringsAsFactors = FALSE)
 otuput <- cbind(rownames(otuput), otuput)
@@ -125,8 +134,14 @@ for (i in 1:nrow(adonis_result_two)) {
 write.table(adonis_result_two, file = file.path(outpath, 'PERMANOVA.result_two.txt'), 
             row.names = FALSE, sep = '\t', quote = FALSE, na = '')
 
+# p值矫正，Benjamini
+adonis_result_two$'Pr (>F)' <- as.numeric(adonis_result_two$'Pr (>F)')
+adonis_result_two$P_adj_BH <- p.adjust(adonis_result_two$'Pr (>F)', method = 'BH')
+# write.table(adonis_result_two,  file = file.path(outpath, 'PERMANOVA.result_two_BH.txt'), 
+#             row.names = FALSE, sep = '\t', quote = FALSE, na = '')
 
-####NMDS分析
+# ####NMDS分析 --------------------------------------------------------------
+
 Color <- c('magenta2', 'blue3', 'green', 'darkorange', 'yellow', 
            'hotpink', 'grey', 'skyblue', 'violet', 'cadetblue', '#0072B2')
 #排序，预设 n个排序轴
@@ -138,8 +153,8 @@ nmds1.point <- data.frame(nmds1$point)
 #提取物种（OTU）排序坐标
 nmds1.species <- data.frame(nmds1$species)
 #############全部样本的NMDS分析################
-plot(nmds1) #样本坐标+OTU坐标
-stressplot(nmds1)
+#plot(nmds1) #样本坐标+OTU坐标
+#stressplot(nmds1)
 nmds1.point$Description = row.names(nmds1.point)
 input_data <- left_join(nmds1.point, mapfile, by = c('Description' = 'Description'))
 names(input_data)[1:2] <- c('NMDS1', 'NMDS2')
@@ -162,24 +177,24 @@ ggsave(sample_point, filename = file.path(outpath, paste('NMDS_all', '.pdf', sep
 
 
 ##################分组，应该怎么分组###################
-for (i in 1:(length(group_name)-1)) {
-  for(j in (i+1):length(group_name)){
-    input_data_ij <- subset(input_data, Type %in% c(group_name[i], group_name[j]))
-    sample_point_ij <- ggplot(input_data_ij, aes(x=NMDS1, y=NMDS2, colour=Type)) +
-      geom_point(aes(shape=Type)) +
-      stat_ellipse(linetype = 2, type = 't') +
-      theme_bw() +
-      scale_shape_manual(values = c(16, 17)) +
-      scale_color_manual(values = c('magenta2', 'blue3')) +
-      labs(title = paste('Stress =', round(nmds1$stress, 3))) +
-      geom_text(aes(label = group), data = species_site, color = 'green4', size = 2) + 
-      theme(plot.title = element_text(hjust = 0.5))
-    ggsave(sample_point_ij, 
-           filename = file.path(outpath, 
-                                paste('NMDS', group_name[i], group_name[j], '.png',sep = '_')),
-           height = 8, width = 8, dpi = 800)
-  }
-}
+# for (i in 1:(length(group_name)-1)) {
+#   for(j in (i+1):length(group_name)){
+#     input_data_ij <- subset(input_data, Type %in% c(group_name[i], group_name[j]))
+#     sample_point_ij <- ggplot(input_data_ij, aes(x=NMDS1, y=NMDS2, colour=Type)) +
+#       geom_point(aes(shape=Type)) +
+#       stat_ellipse(linetype = 2, type = 't') +
+#       theme_bw() +
+#       scale_shape_manual(values = c(16, 17)) +
+#       scale_color_manual(values = c('magenta2', 'blue3')) +
+#       labs(title = paste('Stress =', round(nmds1$stress, 3))) +
+#       geom_text(aes(label = group), data = species_site, color = 'green4', size = 2) + 
+#       theme(plot.title = element_text(hjust = 0.5))
+#     ggsave(sample_point_ij, 
+#            filename = file.path(outpath, 
+#                                 paste('NMDS', group_name[i], group_name[j], '.png',sep = '_')),
+#            height = 8, width = 8, dpi = 800)
+#   }
+# }
 #######################分组样本的NMDS分析##########################
 for (i in 1:(length(group_name) - 1)) {
   for (j in (i + 1):length(group_name)) {

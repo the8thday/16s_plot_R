@@ -7,7 +7,6 @@ infile <- args[1]
 mapfile <- args[2]
 outpath <- args[3]
 compare_groups <- args[4]
-print(compare_groups)
 sorted_group <- args[5]
 
 

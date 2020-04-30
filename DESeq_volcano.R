@@ -10,11 +10,16 @@ infile <- '/Users/congliu/prs/ruijin_xirou/combined_otu_table_m2_std.txt'
 map_file <- '/Users/congliu/prs/ruijin_xirou/map.txt'
 outpath <- '/Users/congliu/prs/ruijin_xirou/'
 one_group <- c('polyp_saliva', 'unpolyp_saliva')
+
+infile <- '/Users/congliu/prs/lasso_data/crc2_4_45_46_47_48_49_mv34_qiime_silva_v2_m2_std.txt'
+map_file <- '/Users/congliu/prs/lasso_data/map_20200108_add_ref_n_a_c.txt'
+one_group <- c('c', 'n')
 group1 <- one_group[1]
 group2 <- one_group[2]
 
 otu <- read.delim(infile, row.names = 1, sep = '\t', 
                   stringsAsFactors = FALSE, check.names = FALSE)
+otu <- subset(otu, taxonomy != 'Unassigned')
 mapfile <- read.delim(map_file, sep = '\t') %>% dplyr::select(Type, Description)
 row.names(mapfile) <- mapfile$Description
 group_file <- subset(mapfile, select = -c(Description))
@@ -24,10 +29,13 @@ otu2 <- otu
 otu2$Description <- row.names(otu2)
 otu3 <- merge(otu2, mapfile, by.x = 'Description', by.y = 'Description')
 row.names(otu3) <- otu3$Description
+otu3$Type <- as.character(otu3$Type)
 otu3 <- subset(otu3, Type %in% one_group) ##挑选出一组样本，提供分组信息
+otu3$Type <- as.factor(otu3$Type)
 otu4 <- subset(otu3, select = -c(Description, Type))
 otu5 <- t(otu4)
-otu5[rowSums(otu5)>10, ]
+#otu5 <- otu5 + 1
+#otu5 <- otu5[rowSums(otu5)>10, ]
 group_file <- subset(otu3, select=c(Type))
 
 

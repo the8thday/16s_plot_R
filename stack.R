@@ -66,7 +66,7 @@ for (tax in taxnomy) {
 #duiji('p__')
 
 ##加上聚类树
-m3_s <- m3 %>% filter(str_detect(`OTU ID`, 's__'))
-dis_bray <- vegan::vegdist(t(m3_s), method = 'bray')
-tree <- hclust(dis_bray, method = 'average')
-plot(tree)
+# m3_s <- m3 %>% filter(str_detect(`OTU ID`, 's__'))
+# dis_bray <- vegan::vegdist(t(m3_s), method = 'bray')
+# tree <- hclust(dis_bray, method = 'average')
+# plot(tree)

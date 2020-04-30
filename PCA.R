@@ -13,16 +13,17 @@ library(tidyverse)
 library(ggsci)
 
 
-infile <- '/Users/congliu/prs/ruijin_xirou/combined_otu_table_m2_std.txt'
-map_file <- '/Users/congliu/prs/ruijin_xirou/map.txt'
-outpath <- '/Users/congliu/prs/ruijin_xirou/'
-one_group <- c('polyp_stool', 'unpolyp_stool')
+infile <- '/Users/congliu/prs/IBD_project/combined_otu_table_m2_std.txt'
+map_file <- '/Users/congliu/prs/IBD_project/map.txt'
+outpath <- '/Users/congliu/prs/IBD_project/'
+one_group <- c('IBD', 'Normal')
 group1 <- one_group[1]
 group2 <- one_group[2]
 
 otu <- read.delim(infile, row.names = 1, sep = '\t', 
                   stringsAsFactors = FALSE, check.names = FALSE)
 mapfile <- read.delim(map_file, sep = '\t') %>% dplyr::select(Type, Description)
+otu <- subset(otu, taxonomy != 'Unassigned')
 otu <- subset(otu, select = -taxonomy)
 otu <- data.frame(t(otu))
 # PCA处理数据
@@ -33,14 +34,17 @@ otu3 <- merge(otu2, mapfile, by.x = 'Description', by.y = 'Description')
 row.names(otu3) <- otu3$Description
 otu3 <- subset(otu3, Type %in% one_group)
 otu4 <- subset(otu3, select = -c(Description, Type))
+# 针对OTU表的数据处理, Hellige
 otu5 <- scale(otu)
 
+# PCA ---------------------------------------------------------------------
+# PCA在用于物种计数数据时is not valid, but can be applied after a Hellinger transformed
 res.pca <- PCA(otu4, scale.unit = FALSE, graph = FALSE)
 eig.val <- get_eigenvalue(res.pca)
 #fviz_eig(res.pca, addlabels = TRUE, ylim = c(0, 30))
 var.values <- get_pca_var(res.pca)
 var.values$contrib #通过PCA的方式选择变量
-#fviz_contrib(res.pca, choice = "var", axes = 1:2, top = 10)
+fviz_contrib(res.pca, choice = "var", axes = 1:2, top = 10)
 #fviz_contrib(res.pca, choice = "var", axes = 2, top = 10)
 res.desc <- dimdesc(res.pca, axes = c(1,2), proba = 0.05)
 
@@ -67,5 +71,8 @@ ggpubr::ggpar(ind.plot,
               legend.title = "Group", legend.position = "top",
               ggtheme = theme_gray(), palette = "npg"
 )
+
+
+# plot by ggplot2 ---------------------------------------------------------
 
 

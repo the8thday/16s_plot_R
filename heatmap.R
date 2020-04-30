@@ -15,21 +15,6 @@ if (!require(tidyverse)){
 library(pheatmap)
 require(RColorBrewer)
 
-save_pheatmap_png <- function(x, filename, width=12, height=10, res = 150) {
-  png(filename, width = width, height = height, res = res)
-  grid::grid.newpage()
-  grid::grid.draw(x$gtable)
-  dev.off()
-}
-
-save_pheatmap_pdf <- function(x, filename, width=12, height=12) {
-  stopifnot(!missing(x))
-  stopifnot(!missing(filename))
-  pdf(filename, width=width, height=height)
-  grid::grid.newpage()
-  grid::grid.draw(x$gtable)
-  dev.off()
-}
 
 taxnomy = c('s__', 'g__', 'f__', 'o__', 'c__', 'p__')
 m3 <- read_delim(infile, delim = '\t')
@@ -39,8 +24,8 @@ map_file <- read.delim(mapfile, sep = '\t') %>%
 sample_num <- length(m3)-2
 width <- round(0.1 * sample_num)
 
-if (width < 8) {
-  width <- 8
+if (width < 10) {
+  width <- 10
 } else if(width > 30){
   width <- 30
 } else {
@@ -48,12 +33,28 @@ if (width < 8) {
 }
 cat("width: ", width)
 
+save_pheatmap_pdf <- function(x, filename, width=width, height=15) {
+  stopifnot(!missing(x))
+  stopifnot(!missing(filename))
+  pdf(filename, width=width, height=height)
+  grid::grid.newpage()
+  grid::grid.draw(x$gtable)
+  dev.off()
+}
+
+save_pheatmap_png <- function(x, filename, width=width, height=10, res = 150) {
+  png(filename, width = width, height = height, res = res)
+  grid::grid.newpage()
+  grid::grid.draw(x$gtable)
+  dev.off()
+}
+
 heat <- function(tax){
   m3 <- m3 %>% filter(str_detect(`OTU ID`, tax)) %>% select(-'OTU ID') %>%
     select(taxonomy, everything()) %>% 
     mutate(total=rowSums(.[2:(length(m3)-1)])) %>% arrange(desc(total)) %>% 
     select(taxonomy, total, everything()) %>% 
-    slice(1:20)
+    slice(1:50)
   
   m3_input <- as.data.frame(m3)
   rownames(m3_input) <- m3_input[,1]
@@ -74,19 +75,20 @@ heat <- function(tax){
                  clustering_distance_cols = vegan::vegdist(t(m3_input), method = "bray"),
                  #color = colorRampPalette(colors = c("blue","yellow","red"))(100),
                  color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-           #display_numbers = matrix(ifelse(m3_input > 5000, "*", ""), nrow(m3_input)), number_color = "black",
-           #cellwidth = 15, cellheight = 15, main = "Example heatmap", 
-           #scale = 'row', 
-           clustering_method = 'average',
-           #border = True, border_color = 'black',
-           annotation_col = annotation_col, fontsize_col=4, fontsize_row=8,
-           annotation_legend = TRUE
-           #width = 8, height = 8
-           )
+                 #display_numbers = matrix(ifelse(m3_input > 5000, "*", ""), nrow(m3_input)), number_color = "black",
+                 #cellwidth = 15, cellheight = 15, main = "Example heatmap", 
+                 cellheight = 10,
+                 #scale = 'row', 
+                 clustering_method = 'average',
+                 #border = True, border_color = 'black',
+                 annotation_col = annotation_col, fontsize_col=4, fontsize_row=8,
+                 annotation_legend = TRUE
+                 #width = 8, height = 8
+                 )
   
-  ggsave(pp, filename = file.path(outpath, paste('heatmap_', tax, '.png', sep = '')), width = width, height = 10, dpi = 800)
+  #ggsave(pp, filename = file.path(outpath, paste('heatmap_', tax, '.png', sep = '')), width = width, height = 10, dpi = 800)
   ggsave(pp, filename = file.path(outpath, paste('heatmap_', tax, '.pdf', sep = '')), width = width, height = 10)
-  #save_pheatmap_pdf(pp, paste('/Users/congliu/prs/many_reporter/JSSRM02/', tax, '.pdf', sep = ''))
+  #save_pheatmap_pdf(pp, file.path(outpath, paste('heatmap_', tax, '.pdf', sep = '')))
 }
 
 for (tax in taxnomy) {

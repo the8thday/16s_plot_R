@@ -40,19 +40,23 @@ library(dendextend)
 library(RColorBrewer)
 library(ggrepel)
 
-
-# infile <- '/Users/congliu/prs/ruijin_xirou/combined_otu_table_m2_std.txt'
-# map_file <- '/Users/congliu/prs/ruijin_xirou/map.txt'
-# outpath <- '/Users/congliu/prs/ruijin_xirou/'
-# one_group <- c('polyp_stool', 'unpolyp_stool')
+tax_color <- c('#8DD3C7', '#FFFFB3', '#BEBADA', '#FB8072', '#80B1D3', 
+                  '#FDB462', '#B3DE69', '#FCCDE5', '#BC80BD', '#CCEBC5', 'gray')
+# infile <- '/Users/congliu/prs/ZJDXGW/combined_otu_table_m2_std.txt'
+# map_file <- '/Users/congliu/prs/ZJDXGW/map.txt'
+# outpath <- '/Users/congliu/prs/ZJDXGW/'
+# one_group <- c('A', 'B', 'C', 'D','E')
 group1 <- one_group[1]
 group2 <- one_group[2]
+# group1 <- 'all'
+# group2 <- 'group'
 
 
 otu <- read.delim(infile, row.names = 1, sep = '\t', 
                   stringsAsFactors = FALSE, check.names = FALSE)
 mapfile <- read.delim(map_file, sep = '\t') %>% dplyr::select(Type, Description)
-#otu <- subset(otu, select = -taxonomy)
+otu <- subset(otu, taxonomy != 'Unassigned')
+otu <- subset(otu, select = -taxonomy)
 otu <- data.frame(t(otu))
 otu2 <- log(otu + 1)
 #otu2 <- otu
@@ -63,6 +67,8 @@ otu3 <- subset(otu3, Type %in% one_group) ##挑选出一组样本，提供分组
 otu4 <- subset(otu3, select = -c(Description, Type)) #为所有计算所用的otu数值
 
 #############PCoA#################
+# I have used the weighted UniFrac metric to determine the distance between samples and PCoA to visualise the data
+# 但是下文不是
 distance <- vegan::vegdist(otu4, method = 'bray')
 pcoa <- cmdscale(distance, k = (nrow(otu4) - 1), eig = TRUE)
 #write.csv(as.matrix(distance), 'distance.csv', quote = F)
@@ -81,11 +87,11 @@ p_pcoa <- ggplot(sample_site, aes(PCoA1, PCoA2, group = Type)) +
         legend.key = element_rect(fill = 'transparent')) +
   geom_vline(xintercept = 0, color = 'gray', size = 0.4) + 
   geom_hline(yintercept = 0, color = 'gray', size = 0.4) +
-  geom_polygon(data = group_border, aes(fill = Type)) + #绘制多边形区域
+  geom_polygon(data = group_border, aes(fill = Type)) +
   geom_point(aes(color = Type), size = 1.5, alpha = 0.8) +
   scale_shape_manual(values = c(17, 16)) +
-  scale_color_manual(values = c('orange', 'blue2', 'red4', 'yellow')) +
-  scale_fill_manual(values = c('#C673FF2E', '#73D5FF2E', '#49C35A2E', '#FF985C2E')) + #可在这里修改区块的颜色
+  scale_color_manual(values = c('orange', 'blue2', 'red4', '#C673FF2E', 'green2')) +
+  scale_fill_manual(values = c('#C673FF2E', '#73D5FF2E', '#49C35A2E', '#FF985C2E', '#C673FF2E')) + #可在这里修改区块的颜色
   guides(fill = guide_legend(order = 1), shape = guide_legend(order = 2), color = guide_legend(order = 3)) +
   labs(x = paste('PCoA axis1: ', round(100 * pcoa_eig[1], 2), '%'), 
        y = paste('PCoA axis2: ', round(100 * pcoa_eig[2], 2), '%'))
@@ -98,9 +104,17 @@ ggsave(p_pcoa, filename = file.path(outpath, paste('pcoa_', group1, '_', group2,
 
 #####################PCA####################
 #Transformation-based Principal Component Analysis，tb-PCA
-#因为PCA计算的欧几里得距离的原因, 而物种数据0较多，可选择进行hellinger
-otu_hel <- decostand(otu4, method = 'hellinger')
-pca_sp <- rda(otu4, scale = FALSE)
+#因为PCA计算的欧几里得距离的原因, 而物种数据0较多，可选择进行hellinger，hellinger转化本身会降低高丰度物种的权重
+otu5 <- otu
+otu5$Description <- row.names(otu5)
+otu6 <- merge(otu5, mapfile, by.x = 'Description', by.y = 'Description')
+row.names(otu6) <- otu6$Description
+otu6 <- subset(otu6, Type %in% one_group)
+otu7 <- subset(otu6, select = -c(Description, Type))
+
+otu_hel <- decostand(otu7, method = 'hellinger')
+# rda scale为TRUE时排序对象是相关矩阵、scale为FASLE时排序对象是离差矩阵
+pca_sp <- rda(otu_hel, scale = FALSE)
 #ordiplot(pca_sp, scaling = 1, display = 'site', type = 'points')
 pca_eig <- pca_sp$CA$eig
 pca_exp <- pca_sp$CA$eig / sum(pca_sp$CA$eig)
@@ -117,7 +131,8 @@ pc2 <- paste('PC2:',round(pca_exp[2]*100, 2), '%')
 
 p_pca <- ggplot(site.scaling1, aes(PC1, PC2)) +
   geom_point(aes(color = Type)) +
-  scale_color_manual(values = c('red4', 'green3', 'yellow', 'orange')) +
+  stat_ellipse(aes(PC1, PC2, color = Type), show.legend = FALSE, linetype = 2) +
+  scale_color_manual(values = c('red4', 'green3', '#C673FF2E', 'orange', 'blue2')) +
   scale_shape_manual(values = c(16, 17)) +
   theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), 
         legend.title = element_blank(), legend.key = element_rect(fill = 'transparent')) + 
@@ -136,7 +151,7 @@ ggsave(p_pca, filename = file.path(outpath, paste('pca_', group1, '_', group2, '
 # head(otu.plsda@scoreMN) 
 # plot(otu.plsda, typeVc = 'overview', parAsColFcVn = factor(otu3$Type))
 
-plsda_result <-plsda(otu4, otu3$Type, ncomp = 4)
+plsda_result <-plsda(otu4, otu3$Type, ncomp = 2)
 #plotIndiv(plsda_result, ind.names = TRUE, style = 'ggplot2')
 sample_site <- data.frame(plsda_result$variates)[1:2]
 sample_site$names <- rownames(sample_site)
@@ -147,7 +162,7 @@ plsda_result_eig <- {plsda_result$explained_variance$X}[1:2]
 p_plsda <- ggplot(sample_site, aes(plsda1, plsda2, color = Type, label = names)) +
   geom_point(size = 1.5, alpha = 0.6) + 
   stat_ellipse(show.legend = FALSE, linetype = 2) +
-  scale_color_manual(values = c('#1D7ACC', '#F67433', '#00815F','#C673FF2E')) +
+  scale_color_manual(values = c('#1D7ACC', '#F67433', '#00815F','#C673FF2E', 'blue2')) +
   scale_shape_manual(values = c(16, 17)) +
   theme(panel.grid = element_line(color = 'grey50'), 
         panel.background = element_rect(color = 'black', fill = 'transparent')) + 
